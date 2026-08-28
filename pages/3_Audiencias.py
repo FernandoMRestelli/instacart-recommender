@@ -48,7 +48,7 @@ catalog = product_catalog()
 has_aisle = "aisle" in catalog.columns and catalog.aisle.notna().any()
 filters = st.columns(4 if has_aisle else 3, gap="medium")
 labels = {"Media": tr("Media", "Medium"), "Alta": tr("Alta", "High"), "Baja": tr("Baja", "Low")}
-band = filters[0].selectbox(tr("Propensión", "Propensity"), list(labels), format_func=labels.get)
+band = filters[0].selectbox(tr("Grupo de propensión", "Propensity group"), list(labels), format_func=labels.get)
 product = filters[1].selectbox(
     tr("Producto", "Product"), ["Todos"] + sorted(catalog.product_name.dropna().unique()),
     format_func=lambda value: tr("Todos", "All") if value == "Todos" else value,
