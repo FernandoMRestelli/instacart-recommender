@@ -33,6 +33,40 @@ def user_label(user_id: int) -> str:
     return f"ID {int(user_id)} · {fictional_name(user_id)}"
 
 
+def customer_selector(profiles, label: str, key: str) -> int:
+    """Select one customer without sending 160k options to the browser."""
+    user_ids = profiles["user_id"]
+    first_user = int(user_ids.iloc[0])
+    requested = st.query_params.get("user_id")
+    requested_user = int(requested) if requested and requested.isdigit() else first_user
+    if not user_ids.eq(requested_user).any():
+        requested_user = first_user
+
+    user_id = int(
+        st.number_input(
+            label,
+            min_value=int(user_ids.min()),
+            max_value=int(user_ids.max()),
+            value=requested_user,
+            step=1,
+            key=key,
+        )
+    )
+    if not user_ids.eq(user_id).any():
+        st.warning(
+            tr(
+                "Ese ID no forma parte de la muestra disponible. Ingresá otro cliente.",
+                "That ID is not part of the available sample. Enter another customer.",
+            )
+        )
+        st.stop()
+
+    if st.query_params.get("user_id") != str(user_id):
+        st.query_params["user_id"] = str(user_id)
+    st.caption(f"{fictional_name(user_id)} · {tr('nombre ficticio', 'fictional name')}")
+    return user_id
+
+
 def user_context(user_id: int, detail: str | None = None):
     detail = detail or tr("Cliente seleccionado", "Selected customer")
     st.markdown(

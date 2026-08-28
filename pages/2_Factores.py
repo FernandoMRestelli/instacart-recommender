@@ -10,7 +10,7 @@ from src.data import (
 )
 from src.i18n import tr
 from src.style import apply_style, content_header, factor_card, next_page_link, style_plotly
-from src.users import user_context, user_label
+from src.users import customer_selector, user_context
 
 st.set_page_config(page_title=tr("Drivers de propensión", "Propensity drivers"), page_icon="🔎", layout="wide")
 apply_style()
@@ -20,11 +20,11 @@ content_header(
 )
 
 profiles = customer_profiles().sort_values("user_id")
-user_ids = profiles.user_id.tolist()
-requested_user = st.query_params.get("user_id")
-requested_user = int(requested_user) if requested_user and requested_user.isdigit() else user_ids[0]
-user_index = user_ids.index(requested_user) if requested_user in user_ids else 0
-user_id = st.selectbox(tr("Cliente", "Customer"), user_ids, index=user_index, format_func=user_label)
+user_id = customer_selector(
+    profiles,
+    tr("Cliente", "Customer"),
+    key="drivers_customer_id",
+)
 user_context(user_id)
 
 recs = user_recommendations(int(user_id)).sort_values("rank")

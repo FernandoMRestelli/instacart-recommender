@@ -5,7 +5,7 @@ import streamlit as st
 from src.data import customer_profiles, user_recommendations
 from src.i18n import tr
 from src.style import apply_style, band_card, content_header, html_card, next_page_link
-from src.users import user_label
+from src.users import customer_selector
 
 st.set_page_config(page_title=tr("Próximo carrito", "Next basket"), page_icon="🛒", layout="wide")
 apply_style()
@@ -22,11 +22,10 @@ except FileNotFoundError as e:
 header_cols = st.columns([1.35, 1, 1, 1, 1])
 with header_cols[0]:
     with st.container(border=True):
-        user_id = st.selectbox(
+        user_id = customer_selector(
+            profiles,
             tr("Cliente seleccionado", "Selected customer"),
-            profiles["user_id"].tolist(),
-            index=0,
-            format_func=user_label,
+            key="next_cart_customer_id",
         )
 profile = profiles.loc[profiles.user_id.eq(user_id)].iloc[0]
 
