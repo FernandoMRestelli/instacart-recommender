@@ -174,10 +174,16 @@ with chart_col:
 with table_col:
     st.markdown(tr("### Resumen por producto", "### Product summary"))
     st.markdown(f"<div class='chart-intro'>{tr('Complementa el ranking con propensión, compradores anteriores y categoría.', 'Adds propensity, previous buyers, and category to the ranking.')}</div>", unsafe_allow_html=True)
-    st.dataframe(by_product, width="stretch", hide_index=True, height=520)
-_, download_col, _ = st.columns([1, 1.2, 1])
-with download_col:
-    st.download_button(tr("Descargar resumen por producto", "Download product summary"), excel_bytes(by_product, tr("Por producto", "By product")), tr("audiencia_por_producto.xlsx", "audience_by_product.xlsx"), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.dataframe(by_product.head(200), width="stretch", hide_index=True, height=520)
+    st.caption(tr("Se muestran las primeras 200 prioridades. La descarga incluye todo el resumen filtrado.", "The first 200 priorities are shown. The download includes the full filtered summary."))
+product_export_key = f"product_summary_{band}_{product}_{category}_{aisle}"
+if st.button(tr("Preparar resumen por producto", "Prepare product summary"), width="content"):
+    with st.spinner(tr("Preparando Excel…", "Preparing Excel…"), show_time=True):
+        st.session_state[product_export_key] = excel_bytes(by_product, tr("Por producto", "By product"))
+if product_export_key in st.session_state:
+    _, download_col, _ = st.columns([1, 1.2, 1])
+    with download_col:
+        st.download_button(tr("Descargar resumen por producto", "Download product summary"), st.session_state[product_export_key], tr("audiencia_por_producto.xlsx", "audience_by_product.xlsx"), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # Category opportunity.
 st.markdown(tr("## Oportunidades por categoría", "## Opportunities by category"))
