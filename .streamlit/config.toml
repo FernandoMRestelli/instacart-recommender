@@ -1,0 +1,14 @@
+[theme]
+primaryColor = "#5b45f5"
+backgroundColor = "#f3f5f9"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#202c40"
+font = "sans serif"
+
+[server]
+enableStaticServing = true
+
+[theme.sidebar]
+backgroundColor = "#101d32"
+secondaryBackgroundColor = "#1a2a45"
+textColor = "#dbe4f1"
