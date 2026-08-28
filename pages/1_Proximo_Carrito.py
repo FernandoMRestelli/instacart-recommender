@@ -81,7 +81,7 @@ st.markdown(
     "<div class='ranking-table-wrap'>"
     "<table class='ranking-table'>"
     "<colgroup><col style='width:5%'><col style='width:27%'><col style='width:22%'><col style='width:18%'><col style='width:11%'><col style='width:17%'></colgroup>"
-    f"<thead><tr><th>#</th><th>{tr('Producto', 'Product')}</th><th>{tr('Propensión', 'Propensity')}</th><th>{tr('Origen', 'Source')}</th><th>{tr('Banda', 'Band')}</th><th>{tr('Factores', 'Drivers')}</th></tr></thead>"
+    f"<thead><tr><th>#</th><th>{tr('Producto', 'Product')}</th><th>Score</th><th>{tr('Origen', 'Source')}</th><th>{tr('Propensión', 'Propensity')}</th><th>{tr('Factores', 'Drivers')}</th></tr></thead>"
     "<tbody>" + "".join(rows) + "</tbody>"
     "</table>"
     "</div>",
