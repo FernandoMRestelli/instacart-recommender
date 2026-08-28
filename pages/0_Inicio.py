@@ -26,7 +26,8 @@ apply_style()
 def home_header_data_uri(filename: str) -> str:
     image_path = Path(__file__).resolve().parents[1] / "assets" / filename
     encoded = b64encode(image_path.read_bytes()).decode("ascii")
-    return f"data:image/png;base64,{encoded}"
+    mime = "image/webp" if image_path.suffix.lower() == ".webp" else "image/png"
+    return f"data:{mime};base64,{encoded}"
 
 st.markdown(
     """
@@ -77,7 +78,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-header_filename = "instacart_header_en.png" if is_english() else "instacart_header.png"
+header_filename = "instacart_header_en.webp" if is_english() else "instacart_header.webp"
 header_alt = tr(
     "Anticipamos el próximo carrito con Machine Learning",
     "We anticipate the next purchase with Machine Learning",
