@@ -325,7 +325,7 @@ def apply_style():
         @media (max-width:1050px) {{ .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.decile-summary-grid,.baseline-explanation-wide {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
         @media (max-width:800px) {{
           .block-container {{ padding-left:1rem; padding-right:1rem; }}
-          .mobile-top-nav {{ position:sticky; top:0; z-index:999; display:flex; gap:.45rem; margin:0 -1rem .85rem; padding:.65rem 1rem .65rem 6.4rem; overflow-x:auto; background:rgba(243,245,249,.97); border-bottom:1px solid #d8deea; box-shadow:0 5px 16px rgba(20,33,56,.08); scrollbar-width:none; -webkit-overflow-scrolling:touch; }}
+          .mobile-top-nav {{ position:sticky; top:3.55rem; z-index:998; display:flex; gap:.45rem; margin:3.55rem -1rem .85rem; padding:.65rem 1rem; overflow-x:auto; background:rgba(243,245,249,.97); border-top:1px solid #e1e5ed; border-bottom:1px solid #d8deea; box-shadow:0 5px 16px rgba(20,33,56,.08); scrollbar-width:none; -webkit-overflow-scrolling:touch; }}
           .mobile-top-nav::-webkit-scrollbar {{ display:none; }}
           .mobile-top-nav a {{ flex:0 0 auto; padding:.55rem .72rem; border:1px solid #d5dce8; border-radius:999px; background:#fff; color:#263750 !important; font-size:.72rem; font-weight:750; line-height:1; text-decoration:none !important; white-space:nowrap; }}
           .mobile-top-nav a:first-child {{ border-color:#5b45f5; color:#4d3be0 !important; }}
