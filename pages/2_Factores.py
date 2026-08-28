@@ -1,17 +1,14 @@
 import pandas as pd
 import duckdb
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
 from src.data import (
     customer_profiles,
-    feature_catalog,
-    local_shap,
     mba_effectiveness,
     user_recommendations,
 )
-from src.i18n import feature_description, tr
+from src.i18n import tr
 from src.style import apply_style, content_header, factor_card, next_page_link, style_plotly
 from src.users import user_context, user_label
 
@@ -224,111 +221,5 @@ try:
     )
 except (FileNotFoundError, duckdb.InvalidInputException):
     pass
-
-st.markdown(tr("## ¿Cómo interpreta el modelo de Machine Learning esta predicción?", "## How does the Machine Learning model interpret this prediction?"))
-st.markdown(
-    f"""
-    <div class="chart-intro">
-      {tr('Como cierre técnico, SHAP muestra cómo el modelo combinó las señales anteriores para estimar la propensión de esta combinación cliente-producto. Las barras violetas empujan la predicción hacia arriba y las naranjas hacia abajo; cuanto más larga es la barra, mayor fue su influencia.', 'As a technical closing view, SHAP shows how the model combined the signals above to estimate propensity for this customer-product pair. Purple bars push the prediction upward and orange bars push it downward; the longer the bar, the greater its influence.')}
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-try:
-    shap_row = local_shap(int(user_id), int(r["product_id"]))
-    if not shap_row.empty:
-        catalog = feature_catalog().drop_duplicates("feature").set_index("feature")
-        contributions = []
-        for column in shap_row.columns:
-            if not column.startswith("shap__"):
-                continue
-            feature = column.removeprefix("shap__")
-            value = r.get(feature, None)
-            meta = catalog.loc[feature] if feature in catalog.index else None
-            category = meta["category"] if meta is not None else "Otra señal"
-            category = {
-                "Fuentes de candidatos": tr("Fuentes de candidatos", "Candidate sources"),
-                "Perfil del cliente": tr("Perfil del cliente", "Customer profile"),
-                "Histórico cliente-producto": tr("Histórico cliente-producto", "Customer-product history"),
-                "Filtrado colaborativo": tr("Filtrado colaborativo", "Collaborative filtering"),
-                "Popularidad": tr("Popularidad", "Popularity"),
-                "Market Basket Analysis": "Market Basket Analysis",
-                "Otra señal": tr("Otra señal", "Other signal"),
-            }.get(category, category)
-            contributions.append(
-                {
-                    "feature": feature,
-                    "label": feature.replace("_", " ").title(),
-                    "category": category,
-                    "description": feature_description(feature, meta["business_description"]) if meta is not None else tr("Señal utilizada por el modelo.", "Signal used by the model."),
-                    "feature_value": value,
-                    "shap_value": float(shap_row.iloc[0][column]),
-                }
-            )
-        shap_df = pd.DataFrame(contributions)
-        shap_df["abs_impact"] = shap_df["shap_value"].abs()
-        shap_df = shap_df.nlargest(12, "abs_impact").sort_values("shap_value")
-        shap_df["direction"] = shap_df["shap_value"].ge(0).map(
-            {True: tr("Aumenta la propensión", "Increases propensity"), False: tr("Reduce la propensión", "Reduces propensity")}
-        )
-        shap_df["value_text"] = shap_df["feature_value"].apply(
-            lambda value: tr("Sin dato", "No data") if pd.isna(value) else f"{value:,.3g}"
-        )
-
-        fig_shap = go.Figure(
-            go.Bar(
-                x=shap_df["shap_value"],
-                y=shap_df["label"],
-                orientation="h",
-                marker_color=shap_df["shap_value"].ge(0).map(
-                    {True: "#5b45f5", False: "#d97706"}
-                ),
-                customdata=shap_df[["direction", "value_text", "description"]],
-                hovertemplate=(
-                    "<b>%{y}</b><br>%{customdata[0]}: %{x:+.3f}<br>"
-                    + tr("Valor observado", "Observed value") + ": %{customdata[1]}<br>%{customdata[2]}<extra></extra>"
-                ),
-            )
-        )
-        style_plotly(fig_shap)
-        fig_shap.add_vline(x=0, line_width=1, line_color="#738096")
-        fig_shap.update_layout(height=500, showlegend=False, bargap=0.28)
-        fig_shap.update_xaxes(title=tr("Impacto SHAP sobre el score del modelo", "SHAP impact on the model score"))
-        fig_shap.update_yaxes(title="")
-        st.plotly_chart(fig_shap, use_container_width=True)
-
-        positive = shap_df.loc[shap_df.shap_value.gt(0)].nlargest(1, "shap_value")
-        negative = shap_df.loc[shap_df.shap_value.lt(0)].nsmallest(1, "shap_value")
-        positive_text = positive.iloc[0]["label"] if not positive.empty else tr("ninguna señal dominante", "no dominant signal")
-        negative_text = negative.iloc[0]["label"] if not negative.empty else tr("ninguna señal dominante", "no dominant signal")
-        st.markdown(
-            f"""
-            <div class="chart-reading">
-              <strong>{tr('Lectura para', 'Reading for')} {selected_name}:</strong> {tr(f'la señal que más aumenta la propensión es <strong>{positive_text}</strong>; la que más la reduce es <strong>{negative_text}</strong>. El score final del modelo es <strong>{r["propensity_score"]:.1%}</strong>. SHAP explica cómo se construyó la predicción, pero no demuestra causalidad ni uplift promocional.', f'the signal that increases propensity the most is <strong>{positive_text}</strong>; the one that reduces it the most is <strong>{negative_text}</strong>. The final model score is <strong>{r["propensity_score"]:.1%}</strong>. SHAP explains how the prediction was built, but it does not prove causality or promotional uplift.')}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        with st.expander(tr("Ver detalle técnico de las contribuciones", "View technical contribution details")):
-            detail = shap_df.sort_values("abs_impact", ascending=False)[
-                ["category", "label", "value_text", "shap_value", "direction", "description"]
-            ].rename(
-                columns={
-                    "category": tr("Grupo", "Group"),
-                    "label": tr("Señal", "Signal"),
-                    "value_text": tr("Valor observado", "Observed value"),
-                    "shap_value": tr("Impacto SHAP", "SHAP impact"),
-                    "direction": tr("Efecto", "Effect"),
-                    "description": tr("Qué representa", "What it represents"),
-                }
-            )
-            st.dataframe(detail, hide_index=True, width="stretch")
-except (FileNotFoundError, duckdb.InvalidInputException):
-    st.info(
-        tr(
-            "La explicación técnica SHAP quedará disponible al volver a ejecutar la exportación del notebook. La app no recalcula el modelo: sólo lee las contribuciones ya exportadas.",
-            "The technical SHAP explanation will become available after rerunning the notebook export. The app does not retrain the model; it only reads previously exported contributions.",
-        )
-    )
 
 next_page_link("Audiencias", "Activación de audiencias", "Audience activation")

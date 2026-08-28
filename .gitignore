@@ -17,6 +17,7 @@ __pycache__/
 # Local modeling artifacts not required by the deployed application
 instacart.duckdb
 optuna_study_temporal_NDCG10_v2.db
+data/local_shap_top20.parquet
 Tesis_Marketing_Instacart_streamlit_ready_BACKUP_*.ipynb
 
 # Temporary output

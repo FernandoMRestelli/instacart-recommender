@@ -13,6 +13,7 @@ ORANGE = "#c96a08"
 
 def apply_style():
     navigation_label = tr("NAVEGACIÓN", "NAVIGATION")
+    menu_label = tr("Menú", "Menu")
     st.markdown(
         f"""
         <style>
@@ -30,6 +31,7 @@ def apply_style():
         .next-page-eyebrow {{ color:#687386; font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }}
         .next-page-title {{ color:var(--ink); font-size:1rem; font-weight:800; line-height:1.25; }}
         .next-page-arrow {{ display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; color:#fff; background:var(--violet); border-radius:50%; font-size:1.25rem; }}
+        .mobile-top-nav {{ display:none; }}
         section[data-testid="stSidebar"] {{ background:#101d32; border-right:0; }}
         section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {{ display:flex; flex-direction:column; padding-top:1.15rem; }}
         section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{ display:flex; flex:1; flex-direction:column; padding-bottom:1rem; }}
@@ -83,6 +85,10 @@ def apply_style():
             stroke:#ffffff !important;
             opacity:1 !important;
         }}
+        [data-testid="stExpandSidebarButton"]::after,
+        [data-testid="stExpandSidebarButton"] button::after,
+        [data-testid="stSidebarCollapsedControl"] button::after,
+        [data-testid="collapsedControl"] button::after {{ content:"{menu_label}"; margin-left:.35rem; color:#fff; font-size:.74rem; font-weight:800; pointer-events:none; }}
         .hero {{ background:#101d32; padding:1rem 1.35rem; color:white; margin:-1.15rem -2.15rem 1.45rem; min-height:62px; display:flex; align-items:center; justify-content:space-between; gap:1.5rem; }}
         .hero-copy {{ min-width:0; }}
         .hero h1 {{ margin:0; font-size:1.05rem; line-height:1.25; font-weight:800; letter-spacing:-.02em; color:white; }}
@@ -317,7 +323,19 @@ def apply_style():
         .stDownloadButton > button:hover {{ background:#263750; border-color:#263750; color:#fff !important; box-shadow:0 2px 6px rgba(20,33,56,.18); }}
         [data-testid="stAlert"] {{ border-radius:8px; }}
         @media (max-width:1050px) {{ .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.decile-summary-grid,.baseline-explanation-wide {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
-        @media (max-width:800px) {{ .block-container {{ padding-left:1rem; padding-right:1rem; }} .hero {{ margin-left:-1rem; margin-right:-1rem; }} .hero-tag {{ display:none; }} .ranking-table-wrap {{ overflow-x:auto; }} .ranking-table {{ min-width:760px; }} .ranking-heading {{ align-items:flex-start; flex-direction:column; }} .pipeline-shell {{ padding:.75rem; }} .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.baseline-explanation,.decile-summary-grid {{ grid-template-columns:1fr; }} .feature-explorer-intro {{ grid-template-columns:1fr; }} .project-link-banner {{ align-items:flex-start; flex-direction:column; }} }}
+        @media (max-width:800px) {{
+          .block-container {{ padding-left:1rem; padding-right:1rem; }}
+          .mobile-top-nav {{ position:sticky; top:0; z-index:999; display:flex; gap:.45rem; margin:0 -1rem .85rem; padding:.65rem 1rem .65rem 6.4rem; overflow-x:auto; background:rgba(243,245,249,.97); border-bottom:1px solid #d8deea; box-shadow:0 5px 16px rgba(20,33,56,.08); scrollbar-width:none; -webkit-overflow-scrolling:touch; }}
+          .mobile-top-nav::-webkit-scrollbar {{ display:none; }}
+          .mobile-top-nav a {{ flex:0 0 auto; padding:.55rem .72rem; border:1px solid #d5dce8; border-radius:999px; background:#fff; color:#263750 !important; font-size:.72rem; font-weight:750; line-height:1; text-decoration:none !important; white-space:nowrap; }}
+          .mobile-top-nav a:first-child {{ border-color:#5b45f5; color:#4d3be0 !important; }}
+          [data-testid="stAppDeployButton"] {{ display:none !important; }}
+          [data-testid="stExpandSidebarButton"] {{ min-width:5.2rem !important; }}
+          [data-testid="stExpandSidebarButton"] button,
+          [data-testid="stSidebarCollapsedControl"] button,
+          [data-testid="collapsedControl"] button {{ min-width:5.2rem !important; padding:.42rem .65rem !important; }}
+          .hero {{ margin-left:-1rem; margin-right:-1rem; }} .hero-tag {{ display:none; }} .ranking-table-wrap {{ overflow-x:auto; }} .ranking-table {{ min-width:760px; }} .ranking-heading {{ align-items:flex-start; flex-direction:column; }} .pipeline-shell {{ padding:.75rem; }} .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.baseline-explanation,.decile-summary-grid {{ grid-template-columns:1fr; }} .feature-explorer-intro {{ grid-template-columns:1fr; }} .project-link-banner {{ align-items:flex-start; flex-direction:column; }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -345,6 +363,27 @@ def sidebar_footer():
           </div>
         </div>
         """,
+        unsafe_allow_html=True,
+    )
+
+
+def mobile_top_navigation():
+    """Compact, touch-friendly navigation shown only on narrow screens."""
+    selected_language = language()
+    links = [
+        ("", tr("Inicio", "Home")),
+        ("Proximo_Carrito", tr("Próximo carrito", "Next basket")),
+        ("Factores", tr("Drivers", "Drivers")),
+        ("Audiencias", tr("Audiencias", "Audiences")),
+        ("Como_Se_Predice", tr("Motor predictivo", "Predictive engine")),
+        ("Metricas", tr("Performance", "Performance")),
+    ]
+    items = "".join(
+        f'<a href="/{path}?lang={selected_language}" target="_self">{escape(label)}</a>'
+        for path, label in links
+    )
+    st.markdown(
+        f'<nav class="mobile-top-nav" aria-label="{escape(tr("Menú principal", "Main menu"))}">{items}</nav>',
         unsafe_allow_html=True,
     )
 

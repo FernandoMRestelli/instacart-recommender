@@ -34,7 +34,7 @@ pipeline_rows = [
         ("07", "Optuna", tr("Optimiza hiperparámetros NDCG", "Optimizes NDCG parameters"), tr("Optimización", "Optimization")),
         ("08", "LightGBM", tr("Combina señales predictivas", "Combines predictive signals"), tr("Modelo", "Model")),
         ("09", "Ranking Top 20", tr("Prioriza próxima compra", "Prioritizes next purchase"), tr("Recomendación", "Recommendation")),
-        ("10", "SHAP", tr("Explica cada predicción", "Explains every prediction"), tr("Interpretabilidad", "Interpretability")),
+        ("10", tr("Salida accionable", "Actionable output"), tr("Activa campañas medibles", "Activates measurable campaigns"), tr("Activación", "Activation")),
     ],
 ]
 
@@ -68,7 +68,7 @@ st.markdown(tr("## Modelos y técnicas utilizadas", "## Models and techniques us
 st.markdown(
     f"""
     <div class="chart-intro">
-      {tr('Las técnicas cumplen funciones distintas: ampliar candidatos, construir señales, aprender patrones, evaluar el orden del ranking y explicar cada resultado.', 'The techniques serve different purposes: expanding candidates, building signals, learning patterns, evaluating ranking order, and explaining each result.')}
+      {tr('Las técnicas cumplen funciones distintas: ampliar candidatos, construir señales, aprender patrones y evaluar el orden del ranking antes de convertirlo en una audiencia accionable.', 'The techniques serve different purposes: expanding candidates, building signals, learning patterns, and evaluating ranking order before turning it into an actionable audience.')}
     </div>
     """,
     unsafe_allow_html=True,
@@ -116,12 +116,6 @@ techniques = [
         tr("Calidad del ranking", "Ranking quality"),
         tr("Evalúa si los productos realmente comprados aparecen y quedan bien posicionados entre las primeras recomendaciones.", "Evaluates whether actually purchased products appear and rank well among the first recommendations."),
         "#c66205",
-    ),
-    (
-        "SHAP",
-        tr("Explicación del modelo", "Model explanation"),
-        tr("Muestra qué variables aumentan o reducen la propensión general y cada predicción cliente-producto.", "Shows which variables increase or reduce overall propensity and each customer-product prediction."),
-        "#9948e8",
     ),
 ]
 

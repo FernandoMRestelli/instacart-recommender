@@ -94,18 +94,3 @@ def model_deciles():
 @st.cache_data(show_spinner=False)
 def feature_catalog():
     return load_parquet("feature_catalog.parquet")
-
-
-@st.cache_data(show_spinner=False)
-def local_shap(user_id: int, product_id: int) -> pd.DataFrame:
-    path = str(_file("local_shap_top20.parquet")).replace("'", "''")
-    with duckdb.connect() as con:
-        return con.execute(
-            f"""
-            SELECT *
-            FROM read_parquet('{path}')
-            WHERE user_id = ? AND product_id = ?
-            LIMIT 1
-            """,
-            [int(user_id), int(product_id)],
-        ).fetchdf()

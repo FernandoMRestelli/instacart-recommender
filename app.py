@@ -1,11 +1,12 @@
 import streamlit as st
 
 from src.i18n import language_selector, tr
-from src.style import sidebar_footer
+from src.style import mobile_top_navigation, sidebar_footer
 
 
 language_selector()
 sidebar_footer()
+mobile_top_navigation()
 
 
 pages = [
