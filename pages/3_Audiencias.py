@@ -1,10 +1,11 @@
 from io import BytesIO
 
+import duckdb
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.data import load_parquet, product_catalog
+from src.data import DATA_DIR, product_catalog
 from src.i18n import tr
 from src.style import apply_style, content_header, html_card, style_plotly
 from src.users import fictional_name
@@ -16,110 +17,82 @@ content_header(
     tr("Transformamos las predicciones individuales en grupos de clientes que pueden activarse con campañas.", "We turn individual predictions into customer groups that can be activated through campaigns."),
 )
 
-
-@st.cache_data(show_spinner=False)
-def audience_base():
-    recommendations = load_parquet("recommendations_top20.parquet")
-    catalog = product_catalog()
-    return recommendations.merge(catalog, on="product_id", how="left", validate="many_to_one")
+RECS = DATA_DIR / "recommendations_top20.parquet"
+CATALOG = DATA_DIR / "product_catalog.parquet"
+DETAIL_LIMIT = 5_000
+EXPORT_LIMIT = 100_000
 
 
 @st.cache_data(show_spinner=False)
-def product_summary(frame):
-    source = frame.copy()
-    source["ya_comprador"] = source["user_product_orders"].fillna(0).gt(0)
-    source[["source_previous", "source_similar_users", "source_global_popular"]] = source[
-        ["source_previous", "source_similar_users", "source_global_popular"]
-    ].fillna(0)
-    grouping = ["product_id", "product_name", "department"]
-    if "aisle" in source.columns:
-        grouping.append("aisle")
-    summary = (
-        source.groupby(grouping, dropna=False)
-        .agg(
-            clientes_elegibles=("user_id", "nunique"),
-            propension_media=("propensity_score", "mean"),
-            propension_mediana=("propensity_score", "median"),
-            porcentaje_ya_compradores=("ya_comprador", "mean"),
-            porcentaje_origen_historico=("source_previous", "mean"),
-            porcentaje_origen_vecinos=("source_similar_users", "mean"),
-            porcentaje_origen_popular=("source_global_popular", "mean"),
-        )
-        .reset_index()
-        .sort_values(["clientes_elegibles", "propension_mediana"], ascending=[False, False])
-    )
-    percentage_columns = [
-        "porcentaje_ya_compradores",
-        "porcentaje_origen_historico",
-        "porcentaje_origen_vecinos",
-        "porcentaje_origen_popular",
-    ]
-    summary[percentage_columns] *= 100
-    summary.insert(0, "prioridad", range(1, len(summary) + 1))
-    return summary
+def query_frame(sql: str, params: tuple = ()) -> pd.DataFrame:
+    """Query parquet in DuckDB so the full scoring data never enters app memory."""
+    with duckdb.connect() as con:
+        con.execute("SET threads = 2")
+        return con.execute(sql, list(params)).fetchdf()
 
 
 @st.cache_data(show_spinner=False)
-def category_summary(frame, category):
-    source = frame.copy()
-    source[["source_previous", "source_similar_users", "source_global_popular"]] = source[
-        ["source_previous", "source_similar_users", "source_global_popular"]
-    ].fillna(0)
-    summary = (
-        source.groupby(category, dropna=False)
-        .agg(
-            clientes_unicos=("user_id", "nunique"),
-            oportunidades_cliente_producto=("product_id", "size"),
-            productos_involucrados=("product_id", "nunique"),
-            propension_media=("propensity_score", "mean"),
-            propension_mediana=("propensity_score", "median"),
-            porcentaje_origen_historico=("source_previous", "mean"),
-            porcentaje_origen_vecinos=("source_similar_users", "mean"),
-            porcentaje_origen_popular=("source_global_popular", "mean"),
-        )
-        .reset_index()
-        .sort_values("clientes_unicos", ascending=False)
-    )
-    summary[["porcentaje_origen_historico", "porcentaje_origen_vecinos", "porcentaje_origen_popular"]] *= 100
-    return summary
-
-
-@st.cache_data(show_spinner=False)
-def excel_bytes(frame, sheet_name):
+def excel_bytes(frame: pd.DataFrame, sheet: str) -> bytes:
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        frame.to_excel(writer, index=False, sheet_name=sheet_name[:31])
+        frame.to_excel(writer, index=False, sheet_name=sheet[:31])
     return output.getvalue()
 
 
 @st.cache_data(show_spinner=False)
-def csv_bytes(frame):
+def csv_bytes(frame: pd.DataFrame) -> bytes:
     return frame.to_csv(index=False).encode("utf-8")
 
 
-recs = audience_base()
-has_aisle = "aisle" in recs.columns and recs["aisle"].notna().any()
-
-filter_columns = st.columns(4 if has_aisle else 3, gap="medium")
-band_labels = {"Media": tr("Media", "Medium"), "Alta": tr("Alta", "High"), "Baja": tr("Baja", "Low")}
-band = filter_columns[0].selectbox(tr("Banda de propensión", "Propensity band"), ["Media", "Alta", "Baja"], index=0, format_func=band_labels.get)
-product_options = ["Todos"] + sorted(recs.product_name.dropna().unique().tolist())
-product = filter_columns[1].selectbox(tr("Producto", "Product"), product_options, format_func=lambda value: tr("Todos", "All") if value == "Todos" else value)
-department_options = ["Todos"] + sorted(recs.department.dropna().unique().tolist())
-department = filter_columns[2].selectbox(tr("Categoría", "Category"), department_options, format_func=lambda value: tr("Todos", "All") if value == "Todos" else value)
+catalog = product_catalog()
+has_aisle = "aisle" in catalog.columns and catalog.aisle.notna().any()
+filters = st.columns(4 if has_aisle else 3, gap="medium")
+labels = {"Media": tr("Media", "Medium"), "Alta": tr("Alta", "High"), "Baja": tr("Baja", "Low")}
+band = filters[0].selectbox(tr("Banda de propensión", "Propensity band"), list(labels), format_func=labels.get)
+product = filters[1].selectbox(
+    tr("Producto", "Product"), ["Todos"] + sorted(catalog.product_name.dropna().unique()),
+    format_func=lambda value: tr("Todos", "All") if value == "Todos" else value,
+)
+category = filters[2].selectbox(
+    tr("Categoría", "Category"), ["Todos"] + sorted(catalog.department.dropna().unique()),
+    format_func=lambda value: tr("Todos", "All") if value == "Todos" else value,
+)
 aisle = "Todos"
 if has_aisle:
-    aisle_options = ["Todos"] + sorted(recs.aisle.dropna().unique().tolist())
-    aisle = filter_columns[3].selectbox(tr("Pasillo / aisle", "Aisle"), aisle_options, format_func=lambda value: tr("Todos", "All") if value == "Todos" else value)
+    aisle = filters[3].selectbox(
+        tr("Pasillo / aisle", "Aisle"), ["Todos"] + sorted(catalog.aisle.dropna().unique()),
+        format_func=lambda value: tr("Todos", "All") if value == "Todos" else value,
+    )
 
-audience = recs.loc[recs.propensity_band.eq(band)].copy()
-if product != "Todos":
-    audience = audience.loc[audience.product_name.eq(product)]
-if department != "Todos":
-    audience = audience.loc[audience.department.eq(department)]
-if has_aisle and aisle != "Todos":
-    audience = audience.loc[audience.aisle.eq(aisle)]
 
+def audience_sql(select_sql: str, suffix: str = "") -> tuple[str, tuple]:
+    aisle_select = ", c.aisle" if has_aisle else ""
+    conditions = ["r.propensity_band = ?"]
+    params = [str(RECS), str(CATALOG), band]
+    if product != "Todos":
+        conditions.append("c.product_name = ?")
+        params.append(product)
+    if category != "Todos":
+        conditions.append("c.department = ?")
+        params.append(category)
+    if has_aisle and aisle != "Todos":
+        conditions.append("c.aisle = ?")
+        params.append(aisle)
+    return f"""
+        WITH audience AS (
+            SELECT r.*, c.product_name, c.department{aisle_select}
+            FROM read_parquet(?) r
+            LEFT JOIN read_parquet(?) c USING (product_id)
+            WHERE {' AND '.join(conditions)}
+        )
+        {select_sql} {suffix}
+    """, tuple(params)
+
+
+metrics = query_frame(*audience_sql("""
+    SELECT count(DISTINCT user_id) AS clientes, count(*) AS oportunidades,
+           count(DISTINCT product_id) AS productos FROM audience
+""")).iloc[0]
 action, recommendation = {
     "Alta": (tr("Evitar descuento innecesario", "Avoid unnecessary discount"), tr("Probable compra orgánica", "Likely organic purchase")),
     "Media": (tr("Realizar acción promocional", "Run a promotional action"), tr("Recomendación: A/B testing para medir uplift", "Recommendation: A/B testing to measure uplift")),
@@ -129,282 +102,112 @@ m1, m2, m3, m4 = st.columns(4)
 with m1:
     html_card(tr("Acción sugerida", "Suggested action"), action, recommendation, "accent-orange")
 with m2:
-    html_card(tr("Clientes activables", "Activatable customers"), f"{audience.user_id.nunique():,}", tr("clientes únicos", "unique customers"), "accent-violet")
+    html_card(tr("Clientes activables", "Activatable customers"), f"{int(metrics.clientes):,}", tr("clientes únicos", "unique customers"), "accent-violet")
 with m3:
-    html_card(tr("Ventas potenciales activables*", "Activatable potential sales*"), f"{len(audience):,}", tr("oportunidades cliente-producto", "customer-product opportunities"), "accent-teal")
+    html_card(tr("Ventas potenciales activables*", "Activatable potential sales*"), f"{int(metrics.oportunidades):,}", tr("oportunidades cliente-producto", "customer-product opportunities"), "accent-teal")
 with m4:
-    html_card(tr("Productos", "Products"), f"{audience.product_id.nunique():,}", tr("productos involucrados", "products involved"), "accent-purple")
-
+    html_card(tr("Productos", "Products"), f"{int(metrics.productos):,}", tr("productos involucrados", "products involved"), "accent-purple")
 st.caption(tr("* Cada registro representa una venta potencial cliente-producto. No se consideran múltiples unidades del mismo producto para un mismo cliente.", "* Each record represents one potential customer-product sale. Multiple units of the same product for one customer are not counted."))
-
-if audience.empty:
-    st.warning(tr("No hay oportunidades para la combinación de filtros seleccionada.", "There are no opportunities for the selected filter combination."))
+if int(metrics.oportunidades) == 0:
+    st.warning(tr("No hay oportunidades para los filtros seleccionados.", "There are no opportunities for the selected filters."))
     st.stop()
 
-# -----------------------------------------------------------------------------
-# AGRUPACIÓN POR PRODUCTO
-# -----------------------------------------------------------------------------
+# Product opportunity: aggregation is executed inside DuckDB.
 st.markdown(tr("## ¿Dónde está la mayor oportunidad de activación?", "## Where is the greatest activation opportunity?"))
-st.markdown(
-    f"""
-    <div class="chart-intro">
-      {tr('Agrupar por producto permite identificar qué artículos concentran una mayor cantidad de clientes con interés suficiente para una acción promocional.', 'Grouping by product identifies which items concentrate the largest number of customers with enough interest for a promotional action.')}
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.caption(tr("Los orígenes pueden superponerse: una oportunidad puede provenir simultáneamente del histórico, de vecinos similares y de popularidad; por eso los porcentajes no necesariamente suman 100%.", "Sources can overlap: an opportunity may come from history, similar neighbors, and popularity at the same time, so percentages do not necessarily add up to 100%."))
-
-by_product = product_summary(audience)
-top_n = st.select_slider(tr("Cantidad de productos en el ranking", "Number of products in the ranking"), options=[10, 15, 20], value=15)
+st.markdown(f"<div class='chart-intro'>{tr('Agrupar por producto permite identificar qué artículos concentran más clientes con interés suficiente para una acción promocional.', 'Grouping by product identifies which items concentrate more customers with enough interest for a promotional action.')}</div>", unsafe_allow_html=True)
+st.caption(tr("Los orígenes pueden superponerse; por eso sus porcentajes no necesariamente suman 100%.", "Sources can overlap, so their percentages do not necessarily add up to 100%."))
+aisle_group = ", aisle" if has_aisle else ""
+product_query = audience_sql(f"""
+    SELECT product_id, product_name, department{aisle_group},
+           count(DISTINCT user_id) AS clientes_elegibles,
+           avg(propensity_score) AS propension_media,
+           median(propensity_score) AS propension_mediana,
+           100*avg(CASE WHEN coalesce(user_product_orders,0)>0 THEN 1 ELSE 0 END) AS porcentaje_ya_compradores,
+           100*avg(coalesce(source_previous,0)) AS porcentaje_origen_historico,
+           100*avg(coalesce(source_similar_users,0)) AS porcentaje_origen_vecinos,
+           100*avg(coalesce(source_global_popular,0)) AS porcentaje_origen_popular
+    FROM audience GROUP BY product_id, product_name, department{aisle_group}
+""", "ORDER BY clientes_elegibles DESC, propension_mediana DESC")
+by_product = query_frame(*product_query)
+by_product.insert(0, "prioridad", range(1, len(by_product) + 1))
+top_n = st.select_slider(tr("Cantidad de productos en el ranking", "Number of products in the ranking"), [10, 15, 20], value=15)
 top_products = by_product.head(top_n).sort_values("clientes_elegibles")
-
 chart_col, table_col = st.columns([1, 1.25], gap="medium")
 with chart_col:
     st.markdown(tr("### Top productos por cantidad de clientes activables", "### Top products by activatable customers"))
-    st.markdown(
-        f"<div class='chart-intro'>{tr('Permite detectar rápidamente qué productos justifican una campaña propia por su alcance potencial. Cuanto mayor es la barra, más clientes pueden incluirse en una activación del producto.', 'Quickly reveals which products justify a dedicated campaign based on potential reach. The longer the bar, the more customers can be included in a product activation.')}</div>",
-        unsafe_allow_html=True,
-    )
-    product_fig = px.bar(
-        top_products,
-        x="clientes_elegibles",
-        y="product_name",
-        orientation="h",
-        text="clientes_elegibles",
-        custom_data=["porcentaje_origen_historico", "porcentaje_origen_vecinos", "porcentaje_origen_popular"],
-        labels={"clientes_elegibles": tr("Clientes activables", "Activatable customers"), "product_name": ""},
-    )
-    style_plotly(product_fig)
-    product_fig.update_traces(
-        marker_color="#5b45f5",
-        texttemplate="%{x:,.0f}",
-        textposition="outside",
-        cliponaxis=False,
-        hovertemplate=(
-            f"<b>%{{y}}</b><br>{tr('Clientes activables', 'Activatable customers')}: %{{x:,}}"
-            f"<br>{tr('Origen histórico', 'Historical source')}: %{{customdata[0]:.1f}}%"
-            f"<br>{tr('Vecinos similares', 'Similar neighbors')}: %{{customdata[1]:.1f}}%"
-            f"<br>{tr('Popularidad global', 'Global popularity')}: %{{customdata[2]:.1f}}%<extra></extra>"
-        ),
-    )
-    product_fig.update_layout(height=520, showlegend=False, margin=dict(l=10, r=70, t=10, b=25), barcornerradius=5)
-    product_fig.update_xaxes(title_text=tr("Clientes activables", "Activatable customers"), rangemode="tozero")
-    product_fig.update_yaxes(title_text="", tickfont=dict(color="#354156", size=10))
-    st.plotly_chart(product_fig, use_container_width=True, config={"displayModeBar": False})
-
+    st.markdown(f"<div class='chart-intro'>{tr('Permite detectar qué productos justifican una campaña propia por su alcance potencial.', 'Reveals which products justify a dedicated campaign based on potential reach.')}</div>", unsafe_allow_html=True)
+    fig = px.bar(top_products, x="clientes_elegibles", y="product_name", orientation="h", text="clientes_elegibles", custom_data=["porcentaje_origen_historico", "porcentaje_origen_vecinos", "porcentaje_origen_popular"])
+    style_plotly(fig)
+    fig.update_traces(marker_color="#5b45f5", texttemplate="%{x:,.0f}", textposition="outside", cliponaxis=False,
+                      hovertemplate=f"<b>%{{y}}</b><br>{tr('Clientes activables','Activatable customers')}: %{{x:,}}<br>{tr('Origen histórico','Historical source')}: %{{customdata[0]:.1f}}%<br>{tr('Vecinos similares','Similar neighbors')}: %{{customdata[1]:.1f}}%<br>{tr('Popularidad global','Global popularity')}: %{{customdata[2]:.1f}}%<extra></extra>")
+    fig.update_layout(height=520, showlegend=False, margin=dict(l=10, r=70, t=10, b=25), barcornerradius=5)
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 with table_col:
     st.markdown(tr("### Resumen por producto", "### Product summary"))
-    st.markdown(
-        f"<div class='chart-intro'>{tr('Complementa el ranking con calidad de audiencia: propensión típica, proporción de compradores anteriores y categoría. Sirve para elegir el producto, dimensionar la campaña y decidir si conviene recompra o captación.', 'Adds audience quality to the ranking: typical propensity, share of previous buyers, and category. It helps choose the product, size the campaign, and decide between repurchase and acquisition.')}</div>",
-        unsafe_allow_html=True,
-    )
-    product_view_columns = [
-        "prioridad", "product_id", "product_name", "clientes_elegibles",
-        "propension_media", "propension_mediana", "porcentaje_ya_compradores", "department",
-        "porcentaje_origen_historico", "porcentaje_origen_vecinos", "porcentaje_origen_popular",
-    ]
-    if has_aisle:
-        product_view_columns.append("aisle")
-    product_view = by_product[product_view_columns].copy()
-    st.dataframe(
-        product_view,
-        width="stretch",
-        hide_index=True,
-        height=520,
-        column_config={
-            "prioridad": st.column_config.NumberColumn(tr("Prioridad", "Priority"), format="%d"),
-            "product_id": st.column_config.NumberColumn("Product ID", format="%d"),
-            "product_name": st.column_config.TextColumn(tr("Producto", "Product"), width="large"),
-            "clientes_elegibles": st.column_config.NumberColumn(tr("Clientes elegibles", "Eligible customers"), format="%,d"),
-            "propension_media": st.column_config.NumberColumn(tr("Prop. media", "Avg. propensity"), format="%.3f"),
-            "propension_mediana": st.column_config.NumberColumn(tr("Prop. mediana", "Median propensity"), format="%.3f"),
-            "porcentaje_ya_compradores": st.column_config.NumberColumn(tr("Ya compradores", "Previous buyers"), format="%.1f%%"),
-            "porcentaje_origen_historico": st.column_config.NumberColumn(tr("Origen histórico", "Historical source"), format="%.1f%%"),
-            "porcentaje_origen_vecinos": st.column_config.NumberColumn(tr("Origen vecinos", "Neighbor source"), format="%.1f%%"),
-            "porcentaje_origen_popular": st.column_config.NumberColumn(tr("Origen popularidad", "Popularity source"), format="%.1f%%"),
-            "department": st.column_config.TextColumn(tr("Categoría", "Category")),
-            "aisle": st.column_config.TextColumn(tr("Pasillo / aisle", "Aisle")),
-        },
-    )
+    st.markdown(f"<div class='chart-intro'>{tr('Complementa el ranking con propensión, compradores anteriores y categoría.', 'Adds propensity, previous buyers, and category to the ranking.')}</div>", unsafe_allow_html=True)
+    st.dataframe(by_product, width="stretch", hide_index=True, height=520)
+_, download_col, _ = st.columns([1, 1.2, 1])
+with download_col:
+    st.download_button(tr("Descargar resumen por producto", "Download product summary"), excel_bytes(by_product, tr("Por producto", "By product")), tr("audiencia_por_producto.xlsx", "audience_by_product.xlsx"), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-_, product_download, _ = st.columns([1, 1.2, 1])
-with product_download:
-    st.download_button(
-        tr("Descargar resumen por producto", "Download product summary"),
-        excel_bytes(product_view, tr("Por producto", "By product")),
-        tr("audiencia_por_producto.xlsx", "audience_by_product.xlsx"),
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-# -----------------------------------------------------------------------------
-# AGRUPACIÓN POR CATEGORÍA
-# -----------------------------------------------------------------------------
+# Category opportunity.
 st.markdown(tr("## Oportunidades por categoría", "## Opportunities by category"))
-st.markdown(
-    f"""
-    <div class="chart-intro">
-      {tr('Las agrupaciones por categoría permiten pasar de campañas producto a producto a estrategias comerciales de mayor escala.', 'Category groupings make it possible to move from product-by-product campaigns to broader commercial strategies.')}
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-category_name = tr("Categoría", "Category")
-unique_customers = tr("Clientes únicos", "Unique customers")
-opportunity_col = tr("Oportunidades cliente-producto", "Customer-product opportunities")
-products_involved = tr("Productos involucrados", "Products involved")
-average_propensity = tr("Propensión media", "Average propensity")
-median_propensity = tr("Propensión mediana", "Median propensity")
-history_source = tr("% origen histórico", "% historical source")
-neighbor_source = tr("% origen vecinos", "% neighbor source")
-popularity_source = tr("% origen popularidad", "% popularity source")
-category_frame = category_summary(audience, "department").rename(
-    columns={
-        "department": category_name,
-        "clientes_unicos": unique_customers,
-        "oportunidades_cliente_producto": opportunity_col,
-        "productos_involucrados": products_involved,
-        "propension_media": average_propensity,
-        "propension_mediana": median_propensity,
-        "porcentaje_origen_historico": history_source,
-        "porcentaje_origen_vecinos": neighbor_source,
-        "porcentaje_origen_popular": popularity_source,
-    }
-)
-chart_value = unique_customers
-download_name = tr("audiencia_por_categoria.xlsx", "audience_by_category.xlsx")
-download_label = tr("Descargar resumen por categoría", "Download category summary")
-
-category_top = category_frame.head(15).sort_values(chart_value)
-category_chart_col, category_table_col = st.columns([1, 1.25], gap="medium")
-with category_chart_col:
+st.markdown(f"<div class='chart-intro'>{tr('Las categorías permiten pasar de campañas producto a producto a estrategias comerciales de mayor escala.', 'Categories make it possible to move from product-by-product campaigns to broader commercial strategies.')}</div>", unsafe_allow_html=True)
+category_query = audience_sql("""
+    SELECT department AS categoria, count(DISTINCT user_id) AS clientes_unicos,
+           count(*) AS oportunidades_cliente_producto, count(DISTINCT product_id) AS productos_involucrados,
+           avg(propensity_score) AS propension_media, median(propensity_score) AS propension_mediana,
+           100*avg(coalesce(source_previous,0)) AS porcentaje_origen_historico,
+           100*avg(coalesce(source_similar_users,0)) AS porcentaje_origen_vecinos,
+           100*avg(coalesce(source_global_popular,0)) AS porcentaje_origen_popular
+    FROM audience GROUP BY department
+""", "ORDER BY clientes_unicos DESC")
+by_category = query_frame(*category_query)
+chart_col, table_col = st.columns([1, 1.25], gap="medium")
+with chart_col:
     st.markdown(tr("### Clientes activables por categoría", "### Activatable customers by category"))
-    st.markdown(
-        f"<div class='chart-intro'>{tr('Muestra en qué categorías se concentra la mayor escala comercial. Es útil para priorizar presupuesto, espacios promocionales y campañas que abarcan varios productos relacionados.', 'Shows which categories concentrate the greatest commercial scale. It helps prioritize budget, promotional placements, and campaigns spanning several related products.')}</div>",
-        unsafe_allow_html=True,
-    )
-    category_fig = px.bar(
-        category_top,
-        x=chart_value,
-        y=category_name,
-        orientation="h",
-        text=chart_value,
-        custom_data=[history_source, neighbor_source, popularity_source],
-        labels={chart_value: tr("Clientes activables", "Activatable customers"), category_name: ""},
-    )
-    style_plotly(category_fig)
-    category_fig.update_traces(
-        marker_color="#168f83",
-        texttemplate="%{x:,.0f}",
-        textposition="outside",
-        cliponaxis=False,
-        hovertemplate=(
-            f"<b>%{{y}}</b><br>{tr('Clientes activables', 'Activatable customers')}: %{{x:,}}"
-            f"<br>{tr('Origen histórico', 'Historical source')}: %{{customdata[0]:.1f}}%"
-            f"<br>{tr('Vecinos similares', 'Similar neighbors')}: %{{customdata[1]:.1f}}%"
-            f"<br>{tr('Popularidad global', 'Global popularity')}: %{{customdata[2]:.1f}}%<extra></extra>"
-        ),
-    )
-    category_fig.update_layout(height=470, showlegend=False, margin=dict(l=10, r=70, t=10, b=25), barcornerradius=5)
-    category_fig.update_yaxes(title_text="", tickfont=dict(color="#354156", size=10))
-    st.plotly_chart(category_fig, use_container_width=True, config={"displayModeBar": False})
+    st.markdown(f"<div class='chart-intro'>{tr('Muestra dónde se concentra la mayor escala comercial y ayuda a priorizar presupuesto.', 'Shows where the greatest commercial scale is concentrated and helps prioritize budget.')}</div>", unsafe_allow_html=True)
+    fig = px.bar(by_category.head(15).sort_values("clientes_unicos"), x="clientes_unicos", y="categoria", orientation="h", text="clientes_unicos")
+    style_plotly(fig)
+    fig.update_traces(marker_color="#168f83", texttemplate="%{x:,.0f}", textposition="outside", cliponaxis=False)
+    fig.update_layout(height=470, showlegend=False, margin=dict(l=10, r=70, t=10, b=25), barcornerradius=5)
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+with table_col:
+    st.markdown(tr("### Resumen por categoría", "### Category summary"))
+    st.markdown(f"<div class='chart-intro'>{tr('Compara clientes, ventas potenciales, productos y propensión más allá del volumen.', 'Compares customers, potential sales, products, and propensity beyond volume.')}</div>", unsafe_allow_html=True)
+    st.dataframe(by_category, width="stretch", hide_index=True, height=470)
+_, download_col, _ = st.columns([1, 1.2, 1])
+with download_col:
+    st.download_button(tr("Descargar resumen por categoría", "Download category summary"), excel_bytes(by_category, tr("Por categoría", "By category")), tr("audiencia_por_categoria.xlsx", "audience_by_category.xlsx"), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-with category_table_col:
-    st.markdown(f"### {tr('Resumen por', 'Summary by')} {category_name.lower()}")
-    st.markdown(
-        f"<div class='chart-intro'>{tr('Detalla el tamaño y la diversidad de cada oportunidad: clientes únicos, ventas potenciales activables, cantidad de productos y nivel de propensión. Permite comparar categorías más allá del volumen.', 'Details the scale and diversity of each opportunity: unique customers, activatable potential sales, product count, and propensity level. This allows categories to be compared beyond volume alone.')}</div>",
-        unsafe_allow_html=True,
-    )
-    st.dataframe(category_frame, width="stretch", hide_index=True, height=470)
+if not by_category.empty:
+    selected = st.selectbox(tr("Ver principales productos dentro de la categoría", "View leading products within the category"), by_category.categoria.dropna().tolist())
+    selected_products = by_product.loc[by_product.department.eq(selected)].head(15)
+    st.markdown(f"### {tr('Principales productos', 'Leading products')} · {selected}")
+    st.markdown(f"<div class='chart-intro'>{tr('Identifica qué productos explican la oportunidad dentro de la categoría seleccionada.', 'Identifies which products explain the opportunity within the selected category.')}</div>", unsafe_allow_html=True)
+    st.dataframe(selected_products[["prioridad", "product_id", "product_name", "clientes_elegibles", "propension_mediana", "porcentaje_ya_compradores"]], width="stretch", hide_index=True)
 
-_, category_download, _ = st.columns([1, 1.2, 1])
-with category_download:
-    st.download_button(
-        download_label,
-        excel_bytes(category_frame, category_name),
-        download_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-if not category_frame.empty:
-    selected_category = st.selectbox(
-        f"{tr('Ver principales productos dentro de', 'View leading products within')} {category_name.lower()}",
-        category_frame[category_name].dropna().tolist(),
-    )
-    category_products = product_summary(audience.loc[audience.department.eq(selected_category)]).head(15)
-    st.markdown(f"### {tr('Principales productos', 'Leading products')} · {selected_category}")
-    st.markdown(
-        f"<div class='chart-intro'>{tr('Identifica qué productos explican la oportunidad dentro de la categoría seleccionada. Ayuda a definir el surtido concreto de una campaña categorial y priorizar los artículos con mayor audiencia.', 'Identifies which products explain the opportunity within the selected category. It helps define the concrete assortment for a category campaign and prioritize items with the largest audience.')}</div>",
-        unsafe_allow_html=True,
-    )
-    st.dataframe(
-        category_products[["prioridad", "product_id", "product_name", "clientes_elegibles", "propension_mediana", "porcentaje_ya_compradores"]],
-        width="stretch",
-        hide_index=True,
-        row_height=34,
-        column_config={
-            "prioridad": tr("Prioridad", "Priority"),
-            "product_id": "Product ID",
-            "product_name": tr("Producto", "Product"),
-            "clientes_elegibles": st.column_config.NumberColumn(tr("Clientes elegibles", "Eligible customers"), format="%,d"),
-            "propension_mediana": st.column_config.ProgressColumn(tr("Prop. mediana", "Median propensity"), min_value=0, max_value=1, format="%.3f"),
-            "porcentaje_ya_compradores": st.column_config.ProgressColumn(tr("Ya compradores", "Previous buyers"), min_value=0, max_value=100, format="%.1f%%"),
-        },
-    )
-
-# -----------------------------------------------------------------------------
-# DETALLE CLIENTE-PRODUCTO
-# -----------------------------------------------------------------------------
+# The operational table is deliberately bounded; filters still affect every row.
 st.markdown(tr("## Detalle cliente-producto", "## Customer-product detail"))
-st.markdown(
-    f"<div class='chart-intro'>{tr('Vista operativa de las oportunidades individuales que componen los resúmenes anteriores.', 'Operational view of the individual opportunities that make up the summaries above.')}</div>",
-    unsafe_allow_html=True,
-)
-name_map = {int(uid): fictional_name(int(uid)) for uid in audience.user_id.unique()}
-detail = audience.copy()
-fictional_col = tr("Nombre ficticio", "Fictional name")
-detail[fictional_col] = detail.user_id.map(name_map)
-detail_columns = ["user_id", fictional_col, "product_id", "product_name", "rank", "propensity_score", "propensity_band", "department"]
-if has_aisle:
-    detail_columns.append("aisle")
-detail_view = detail[detail_columns].sort_values(["user_id", "rank"])
-customer_id_col = tr("ID cliente", "Customer ID")
-product_col = tr("Producto", "Product")
-propensity_col = tr("Propensión", "Propensity")
-band_col = tr("Banda", "Band")
-category_col = tr("Categoría", "Category")
-aisle_col = tr("Pasillo / aisle", "Aisle")
-detail_view.columns = [customer_id_col, fictional_col, "Product ID", product_col, "Rank", propensity_col, band_col, category_col] + ([aisle_col] if has_aisle else [])
-band_visual = {"Alta": f"🟢 {tr('Alta', 'High')}", "Media": f"🟠 {tr('Media', 'Medium')}", "Baja": f"⚪ {tr('Baja', 'Low')}"}
-detail_display = detail_view.copy(deep=False)
-detail_display[band_col] = detail_display[band_col].map(band_visual).fillna(detail_display[band_col])
-st.dataframe(
-    detail_display,
-    width="stretch",
-    hide_index=True,
-    height=520,
-    row_height=34,
-    column_config={
-        customer_id_col: st.column_config.NumberColumn(customer_id_col, format="%d", width="small"),
-        fictional_col: st.column_config.TextColumn(fictional_col, width="medium"),
-        "Product ID": st.column_config.NumberColumn("Product ID", format="%d", width="small"),
-        product_col: st.column_config.TextColumn(product_col, width="large"),
-        "Rank": st.column_config.NumberColumn("Rank", format="%d", width="small"),
-        propensity_col: st.column_config.ProgressColumn(propensity_col, min_value=0, max_value=1, format="%.3f", width="medium"),
-        band_col: st.column_config.TextColumn(band_col, width="small"),
-        category_col: st.column_config.TextColumn(category_col, width="medium"),
-    },
-)
+st.markdown(f"<div class='chart-intro'>{tr(f'Vista de las primeras {DETAIL_LIMIT:,} oportunidades. El límite protege la estabilidad; use los filtros para acotar la audiencia.', f'View of the first {DETAIL_LIMIT:,} opportunities. The limit protects stability; use filters to narrow the audience.')}</div>", unsafe_allow_html=True)
+detail_query = audience_sql("""
+    SELECT user_id, product_id, product_name, rank, propensity_score, propensity_band, department
+    FROM audience
+""", f"ORDER BY user_id, rank LIMIT {DETAIL_LIMIT}")
+detail = query_frame(*detail_query)
+name_col = tr("Nombre ficticio", "Fictional name")
+detail.insert(1, name_col, detail.user_id.map(lambda value: fictional_name(int(value))))
+st.dataframe(detail, width="stretch", hide_index=True, height=520, row_height=34)
 
-_, detail_download, _ = st.columns([1, 1.2, 1])
-with detail_download:
-    st.download_button(
-        tr("Descargar tabla detalle filtrada", "Download filtered detail table"),
-        csv_bytes(detail_view),
-        tr("audiencia_detalle.csv", "audience_detail.csv"),
-        mime="text/csv",
-    )
-
+export_query = audience_sql("""
+    SELECT user_id, product_id, product_name, rank, propensity_score, propensity_band, department
+    FROM audience
+""", f"ORDER BY user_id, rank LIMIT {EXPORT_LIMIT}")
+export = query_frame(*export_query)
+export.insert(1, name_col, export.user_id.map(lambda value: fictional_name(int(value))))
+_, download_col, _ = st.columns([1, 1.2, 1])
+with download_col:
+    st.download_button(tr("Descargar tabla detalle filtrada", "Download filtered detail table"), csv_bytes(export), tr("audiencia_detalle.csv", "audience_detail.csv"), mime="text/csv")
+st.caption(tr(f"La descarga incluye hasta {EXPORT_LIMIT:,} registros y respeta los filtros activos.", f"The download includes up to {EXPORT_LIMIT:,} records and respects the active filters."))
 if not has_aisle:
-    st.caption(tr("La exportación actual no incluye la variable aisle/pasillo. El filtro y los resúmenes por pasillo se habilitarán automáticamente cuando esa columna esté disponible.", "The current export does not include the aisle variable. Aisle filters and summaries will be enabled automatically when that column becomes available."))
+    st.caption(tr("La exportación actual no incluye aisle/pasillo; el filtro se habilitará cuando la columna esté disponible.", "The current export does not include aisle; the filter will be enabled when the column becomes available."))
