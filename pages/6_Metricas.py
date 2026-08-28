@@ -8,7 +8,7 @@ import streamlit as st
 
 from src.data import model_deciles, model_metrics
 from src.i18n import tr
-from src.style import apply_style, hero, style_plotly
+from src.style import apply_style, hero, next_page_link, style_plotly
 
 
 def light_table(data: pd.DataFrame, emphasis_columns: set[str] | None = None) -> str:
@@ -318,3 +318,5 @@ st.html(
     <div class="metric-caveat"><strong>{tr('Lectura responsable', 'Responsible reading')}:</strong> {tr('estas métricas prueban calidad predictiva y de ranking sobre Test. No prueban que una promoción cause compras adicionales; el uplift debe medirse posteriormente mediante A/B testing.', 'these metrics demonstrate predictive and ranking quality on Test. They do not prove that a promotion causes additional purchases; uplift must be measured later through A/B testing.')}</div>
     """
 )
+
+next_page_link("", "Volver a Inicio", "Back to Home")

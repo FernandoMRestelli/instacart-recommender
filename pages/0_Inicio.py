@@ -6,7 +6,7 @@ import plotly.express as px
 
 from src.data import dataset_summary, load_parquet
 from src.i18n import is_english, tr
-from src.style import apply_style, html_card, style_plotly
+from src.style import apply_style, html_card, next_page_link, style_plotly
 
 
 # ============================================================
@@ -111,7 +111,6 @@ st.html(
     </section>
     """
 )
-
 
 # ============================================================
 # DATASET
@@ -431,3 +430,5 @@ st.html(
     </div>
     """
 )
+
+next_page_link("Proximo_Carrito", "Próximo carrito", "Next basket")

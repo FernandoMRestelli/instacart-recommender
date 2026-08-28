@@ -4,7 +4,7 @@ import streamlit as st
 
 from src.data import customer_profiles, user_recommendations
 from src.i18n import tr
-from src.style import apply_style, band_card, content_header, html_card
+from src.style import apply_style, band_card, content_header, html_card, next_page_link
 from src.users import user_label
 
 st.set_page_config(page_title=tr("Próximo carrito", "Next basket"), page_icon="🛒", layout="wide")
@@ -121,3 +121,5 @@ with download_col:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         width="content",
     )
+
+next_page_link("Factores", "Drivers de propensión", "Propensity drivers")

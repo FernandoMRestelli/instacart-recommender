@@ -1,4 +1,5 @@
 import pandas as pd
+import duckdb
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -11,7 +12,7 @@ from src.data import (
     user_recommendations,
 )
 from src.i18n import feature_description, tr
-from src.style import apply_style, content_header, factor_card, style_plotly
+from src.style import apply_style, content_header, factor_card, next_page_link, style_plotly
 from src.users import user_context, user_label
 
 st.set_page_config(page_title=tr("Drivers de propensión", "Propensity drivers"), page_icon="🔎", layout="wide")
@@ -221,7 +222,7 @@ try:
         """,
         unsafe_allow_html=True,
     )
-except FileNotFoundError:
+except (FileNotFoundError, duckdb.InvalidInputException):
     pass
 
 st.markdown(tr("## ¿Cómo interpreta el modelo de Machine Learning esta predicción?", "## How does the Machine Learning model interpret this prediction?"))
@@ -322,10 +323,12 @@ try:
                 }
             )
             st.dataframe(detail, hide_index=True, width="stretch")
-except FileNotFoundError:
+except (FileNotFoundError, duckdb.InvalidInputException):
     st.info(
         tr(
             "La explicación técnica SHAP quedará disponible al volver a ejecutar la exportación del notebook. La app no recalcula el modelo: sólo lee las contribuciones ya exportadas.",
             "The technical SHAP explanation will become available after rerunning the notebook export. The app does not retrain the model; it only reads previously exported contributions.",
         )
     )
+
+next_page_link("Audiencias", "Activación de audiencias", "Audience activation")

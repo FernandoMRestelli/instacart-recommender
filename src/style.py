@@ -2,7 +2,7 @@ from html import escape
 
 import streamlit as st
 
-from src.i18n import tr
+from src.i18n import language, tr
 
 
 INK = "#142138"
@@ -23,6 +23,13 @@ def apply_style():
         [data-testid="stHeader"] {{ background:transparent; height:0; }}
         [data-testid="stToolbar"] {{ top:.45rem; }}
         .block-container {{ padding:1.15rem 2.15rem 3rem; max-width:1440px; }}
+        .next-page-nav {{ margin-top:2.25rem; padding-top:1rem; border-top:1px solid #dce2ec; }}
+        .next-page-link {{ display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:72px; padding:1rem 1.15rem; color:var(--ink)!important; text-decoration:none!important; background:#fff; border:1px solid #d7deea; border-radius:12px; box-shadow:0 5px 18px rgba(20,33,56,.06); transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease; }}
+        .next-page-link:hover {{ transform:translateY(-1px); border-color:#a99cff; box-shadow:0 8px 24px rgba(49,39,150,.11); }}
+        .next-page-copy {{ display:flex; flex-direction:column; gap:.2rem; }}
+        .next-page-eyebrow {{ color:#687386; font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }}
+        .next-page-title {{ color:var(--ink); font-size:1rem; font-weight:800; line-height:1.25; }}
+        .next-page-arrow {{ display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; color:#fff; background:var(--violet); border-radius:50%; font-size:1.25rem; }}
         section[data-testid="stSidebar"] {{ background:#101d32; border-right:0; }}
         section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {{ display:flex; flex-direction:column; padding-top:1.15rem; }}
         section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{ display:flex; flex:1; flex-direction:column; padding-bottom:1rem; }}
@@ -407,6 +414,25 @@ def factor_card(title: str, intro: str, metrics: list[tuple], color: str, conclu
         f"<ul class='factor-metrics'>{metric_rows}</ul>"
         f"{conclusion_html}"
         "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def next_page_link(path: str, spanish_title: str, english_title: str):
+    """Mobile-friendly footer navigation that preserves the selected language."""
+    href = f"/{path.lstrip('/')}?lang={language()}"
+    st.markdown(
+        f"""
+        <nav class="next-page-nav" aria-label="{escape(tr('Navegación entre páginas', 'Page navigation'))}">
+          <a class="next-page-link" href="{escape(href)}" target="_self">
+            <span class="next-page-copy">
+              <span class="next-page-eyebrow">{escape(tr('Siguiente página', 'Next page'))}</span>
+              <span class="next-page-title">{escape(tr(spanish_title, english_title))}</span>
+            </span>
+            <span class="next-page-arrow" aria-hidden="true">→</span>
+          </a>
+        </nav>
+        """,
         unsafe_allow_html=True,
     )
 

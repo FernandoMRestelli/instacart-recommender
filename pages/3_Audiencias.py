@@ -7,7 +7,7 @@ import streamlit as st
 
 from src.data import DATA_DIR, product_catalog
 from src.i18n import tr
-from src.style import apply_style, content_header, html_card, style_plotly
+from src.style import apply_style, content_header, html_card, next_page_link, style_plotly
 from src.users import fictional_name
 
 st.set_page_config(page_title=tr("Activación de audiencias", "Audience activation"), page_icon="👥", layout="wide")
@@ -211,3 +211,5 @@ with download_col:
 st.caption(tr(f"La descarga incluye hasta {EXPORT_LIMIT:,} registros y respeta los filtros activos.", f"The download includes up to {EXPORT_LIMIT:,} records and respects the active filters."))
 if not has_aisle:
     st.caption(tr("La exportación actual no incluye aisle/pasillo; el filtro se habilitará cuando la columna esté disponible.", "The current export does not include aisle; the filter will be enabled when the column becomes available."))
+
+next_page_link("Como_Se_Predice", "Motor predictivo", "Predictive engine")

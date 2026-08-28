@@ -5,7 +5,7 @@ import streamlit as st
 
 from src.data import feature_catalog
 from src.i18n import is_english, tr
-from src.style import apply_style, hero
+from src.style import apply_style, hero, next_page_link
 
 st.set_page_config(page_title=tr("Motor predictivo", "Predictive engine"), page_icon="⚙️", layout="wide")
 apply_style()
@@ -290,6 +290,7 @@ if github_repository_url:
         </div>
         """
     )
+
 else:
     st.html(
         f"""
@@ -299,3 +300,5 @@ else:
         </div>
         """
     )
+
+next_page_link("Metricas", "Performance del modelo", "Model performance")
