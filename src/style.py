@@ -191,13 +191,33 @@ def apply_style():
         .feature-explorer-intro p {{ margin:0; color:#687386; font-size:.68rem; line-height:1.45; }}
         .feature-explorer-intro p b {{ display:block; margin-top:.18rem; color:var(--component-color,#5b45f5); font-size:.62rem; }}
         .metric-comparison-grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.8rem; margin:.85rem 0 1rem; }}
-        .metric-comparison-card {{ min-height:190px; padding:1rem 1.05rem; border:1px solid #dce2ec; border-radius:10px; background:#fff; box-shadow:0 4px 12px rgba(20,33,56,.04); position:relative; overflow:hidden; }}
+        .metric-comparison-card {{ min-height:235px; padding:1rem 1.05rem; border:1px solid #dce2ec; border-radius:10px; background:#fff; box-shadow:0 4px 12px rgba(20,33,56,.04); position:relative; overflow:hidden; }}
         .metric-comparison-card::after {{ content:""; position:absolute; left:0; right:0; bottom:0; height:4px; background:var(--metric-color,#5b45f5); }}
         .metric-comparison-top {{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; color:#687386; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.045em; }}
-        .metric-comparison-top b {{ padding:.28rem .5rem; border-radius:999px; background:#e9f7f1; color:#087d55; font-size:.61rem; letter-spacing:0; text-transform:none; white-space:nowrap; }}
+        .metric-lift-badges {{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.25rem; }}
+        .metric-comparison-top b {{ padding:.28rem .5rem; border-radius:999px; background:#e9f7f1; color:#087d55; font-size:.58rem; letter-spacing:0; text-transform:none; white-space:nowrap; }}
+        .metric-comparison-top b.popularity {{ background:#edf0f4; color:#596579; }}
         .metric-comparison-value {{ margin-top:.7rem; color:var(--ink); font-size:1.75rem; line-height:1; font-weight:850; letter-spacing:-.035em; }}
         .metric-comparison-baseline {{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-top:.68rem; padding:.48rem .55rem; border-radius:6px; background:#f3f5f8; color:#687386; font-size:.64rem; }}
         .metric-comparison-baseline strong {{ color:var(--metric-color,#5b45f5); }}
+        .metric-comparison-baselines {{ display:grid; gap:.3rem; margin-top:.68rem; }}
+        .metric-comparison-baselines .metric-comparison-baseline {{ margin-top:0; }}
+        .metric-comparison-baseline.history {{ background:#eaf8f5; }}
+        .model-progression {{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1.08fr); align-items:stretch; gap:.55rem; margin:.85rem 0 1.2rem; }}
+        .progression-step {{ position:relative; min-height:205px; padding:1rem; border:1px solid #dce2ec; border-radius:10px; background:#fff; box-shadow:0 3px 10px rgba(20,33,56,.035); overflow:hidden; }}
+        .progression-step::after {{ content:""; position:absolute; left:0; right:0; bottom:0; height:4px; background:var(--progress-color,#758092); }}
+        .progression-number {{ color:var(--progress-color,#758092); font-size:.58rem; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }}
+        .progression-title {{ margin-top:.38rem; color:var(--ink); font-size:.92rem; font-weight:850; line-height:1.25; }}
+        .progression-level {{ margin-top:.18rem; color:#758092; font-size:.62rem; font-weight:750; }}
+        .progression-step p {{ margin:.65rem 0 .72rem; color:#687386; font-size:.67rem; line-height:1.48; }}
+        .progression-metrics {{ display:grid; grid-template-columns:repeat(3,1fr); gap:.3rem; }}
+        .progression-metrics span {{ padding:.38rem .32rem; border-radius:6px; background:#f3f5f8; color:#596579; font-size:.55rem; text-align:center; line-height:1.25; }}
+        .progression-metrics b {{ display:block; margin-top:.1rem; color:var(--ink); font-size:.68rem; }}
+        .progression-arrow {{ display:flex; flex-direction:column; align-items:center; justify-content:center; width:4.5rem; color:#758092; text-align:center; }}
+        .progression-arrow b {{ color:#5b45f5; font-size:1.35rem; line-height:1; }}
+        .progression-arrow span {{ margin-top:.32rem; font-size:.55rem; font-weight:750; line-height:1.25; }}
+        .progression-step.hybrid {{ border-color:#cfc8ff; background:linear-gradient(145deg,#f0efff,#fff); }}
+        .progression-gain {{ display:inline-block; margin-top:.65rem; padding:.3rem .48rem; border-radius:999px; background:#e5f7ee; color:#087d55; font-size:.58rem; font-weight:850; }}
         .metric-comparison-card p {{ margin:.65rem 0 0; color:#687386; font-size:.68rem; line-height:1.45; }}
         .metric-success-callout {{ display:flex; align-items:flex-start; gap:.85rem; margin:.8rem 0 1.35rem; padding:1rem 1.1rem; border:1px solid #bfe8d4; border-radius:10px; background:#eaf8f1; }}
         .metric-success-icon {{ flex:0 0 2rem; display:grid; place-items:center; width:2rem; height:2rem; border-radius:8px; background:#159d68; color:#fff; font-size:1rem; font-weight:850; }}
@@ -322,7 +342,7 @@ def apply_style():
         .stDownloadButton > button p, .stDownloadButton > button span {{ color:#fff !important; opacity:1 !important; }}
         .stDownloadButton > button:hover {{ background:#263750; border-color:#263750; color:#fff !important; box-shadow:0 2px 6px rgba(20,33,56,.18); }}
         [data-testid="stAlert"] {{ border-radius:8px; }}
-        @media (max-width:1050px) {{ .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.decile-summary-grid,.baseline-explanation-wide {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
+        @media (max-width:1050px) {{ .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.decile-summary-grid,.baseline-explanation-wide {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .model-progression {{ grid-template-columns:1fr; }} .progression-arrow {{ width:auto; min-height:2.4rem; }} .progression-arrow b {{ transform:rotate(90deg); }} }}
         @media (max-width:800px) {{
           .block-container {{ padding-left:1rem; padding-right:1rem; }}
           .mobile-top-nav {{ position:sticky; top:3.55rem; z-index:998; display:flex; gap:.45rem; margin:3.55rem -1rem .85rem; padding:.65rem 1rem; overflow-x:auto; background:rgba(243,245,249,.97); border-top:1px solid #e1e5ed; border-bottom:1px solid #d8deea; box-shadow:0 5px 16px rgba(20,33,56,.08); scrollbar-width:none; -webkit-overflow-scrolling:touch; }}

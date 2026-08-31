@@ -57,10 +57,10 @@ previous_columns = {
 }
 has_previous_baseline = previous_columns.issubset(m.columns)
 if has_previous_baseline:
-    reference_precision = max(selected.baseline_precision, selected.previous_baseline_precision)
-    reference_recall = max(selected.baseline_recall, selected.previous_baseline_recall)
-    reference_ndcg = max(selected.baseline_ndcg, selected.previous_baseline_ndcg)
-    reference_label = tr("mejor baseline", "best baseline")
+    reference_precision = selected.previous_baseline_precision
+    reference_recall = selected.previous_baseline_recall
+    reference_ndcg = selected.previous_baseline_ndcg
+    reference_label = tr("baseline histórico", "historical baseline")
 else:
     reference_precision = selected.baseline_precision
     reference_recall = selected.baseline_recall
@@ -68,24 +68,35 @@ else:
     reference_label = tr("baseline popularidad", "popularity baseline")
 
 metric_config = [
-    ("Precision", selected.precision, reference_precision, tr("De cada recomendación mostrada, cuántas terminaron comprándose.", "How many displayed recommendations were eventually purchased."), "#5b45f5", True),
-    ("Recall", selected.recall, reference_recall, tr("Del carrito real, cuánto logró recuperar el modelo.", "How much of the actual basket the model recovered."), "#168f83", True),
-    ("NDCG", selected.ndcg, reference_ndcg, tr("Qué tan arriba quedaron los productos realmente comprados.", "How highly the actually purchased products were ranked."), "#9948e8", False),
+    ("Precision", selected.precision, selected.baseline_precision, selected.get("previous_baseline_precision", selected.baseline_precision), tr("De cada recomendación mostrada, cuántas terminaron comprándose.", "How many displayed recommendations were eventually purchased."), "#5b45f5", True),
+    ("Recall", selected.recall, selected.baseline_recall, selected.get("previous_baseline_recall", selected.baseline_recall), tr("Del carrito real, cuánto logró recuperar el modelo.", "How much of the actual basket the model recovered."), "#168f83", True),
+    ("NDCG", selected.ndcg, selected.baseline_ndcg, selected.get("previous_baseline_ndcg", selected.baseline_ndcg), tr("Qué tan arriba quedaron los productos realmente comprados.", "How highly the actually purchased products were ranked."), "#9948e8", False),
 ]
 
 comparison_cards = []
-for name, model_value, baseline_value, note, color, as_percent in metric_config:
-    lift = model_value / baseline_value
-    difference = model_value - baseline_value
+for name, model_value, popularity_value, historical_value, note, color, as_percent in metric_config:
+    popularity_lift = model_value / popularity_value
+    historical_lift = model_value / historical_value
     value_text = f"{model_value:.1%}" if as_percent else f"{model_value:.3f}"
-    baseline_text = f"{baseline_value:.1%}" if as_percent else f"{baseline_value:.3f}"
-    difference_text = f"+{difference:.1%}" if as_percent else f"+{difference:.3f}"
+    popularity_text = f"{popularity_value:.1%}" if as_percent else f"{popularity_value:.3f}"
+    historical_text = f"{historical_value:.1%}" if as_percent else f"{historical_value:.3f}"
+    popularity_difference = f"+{model_value - popularity_value:.1%}" if as_percent else f"+{model_value - popularity_value:.3f}"
+    historical_difference = f"+{model_value - historical_value:.1%}" if as_percent else f"+{model_value - historical_value:.3f}"
     comparison_cards.append(
         f"""
         <article class="metric-comparison-card" style="--metric-color:{color}">
-          <div class="metric-comparison-top"><span>{name}@{selected_k}</span><b>{lift:.2f}× {tr('baseline', 'baseline')}</b></div>
+          <div class="metric-comparison-top">
+            <span>{name}@{selected_k}</span>
+            <div class="metric-lift-badges">
+              <b class="popularity">{popularity_lift:.2f}× {tr('popularidad', 'popularity')}</b>
+              <b>{historical_lift:.2f}× {tr('histórico', 'historical')}</b>
+            </div>
+          </div>
           <div class="metric-comparison-value">{value_text}</div>
-          <div class="metric-comparison-baseline"><span>{reference_label.title()} {baseline_text}</span><strong>{difference_text}</strong></div>
+          <div class="metric-comparison-baselines">
+            <div class="metric-comparison-baseline"><span>{tr('Baseline popularidad', 'Popularity baseline')} {popularity_text}</span><strong>{popularity_difference}</strong></div>
+            <div class="metric-comparison-baseline history"><span>{tr('Baseline histórico', 'Historical baseline')} {historical_text}</span><strong>{historical_difference}</strong></div>
+          </div>
           <p>{note}</p>
         </article>
         """
@@ -100,9 +111,54 @@ st.html(
     <div class="metric-success-callout">
       <div class="metric-success-icon">✓</div>
       <div><span>{tr('¿Por qué es un buen resultado?', 'Why is this a strong result?')}</span>
-        <strong>{tr('El ranking personalizado aporta valor frente a reglas simples.', 'The personalized ranking adds value over simple rules.')}</strong>
-        <p>{tr(f'En el Top {selected_k}, obtiene {precision_lift:.1f} veces más precisión, recupera {recall_lift:.1f} veces más productos del carrito y alcanza {ndcg_lift:.1f} veces la calidad de orden del {reference_label}.', f'At Top {selected_k}, it delivers {precision_lift:.1f} times more precision, recovers {recall_lift:.1f} times more basket products, and reaches {ndcg_lift:.1f} times the ordering quality of the {reference_label}.')}</p>
+        <strong>{tr('El modelo híbrido supera incluso a una regla histórica personalizada.', 'The hybrid model outperforms even a personalized historical rule.')}</strong>
+        <p>{tr(f'En el Top {selected_k}, frente al baseline histórico obtiene {precision_lift:.2f}× la precisión, {recall_lift:.2f}× el recall y {ndcg_lift:.2f}× el NDCG. La mejora proviene de combinar el historial propio con vecinos similares, popularidad y asociaciones entre productos, incorporando oportunidades que una regla de recompra no puede descubrir.', f'At Top {selected_k}, versus the historical baseline it achieves {precision_lift:.2f}× precision, {recall_lift:.2f}× recall, and {ndcg_lift:.2f}× NDCG. The gain comes from combining each customer’s history with similar neighbors, popularity, and product associations, uncovering opportunities a repurchase rule cannot discover.')}</p>
       </div>
+    </div>
+    """
+)
+
+st.markdown(tr("## Cómo se construye la mejora", "## How the improvement is built"))
+st.markdown(
+    f"""
+    <div class="chart-intro">
+      {tr('La comparación no enfrenta al modelo únicamente contra una referencia débil. Cada nivel incorpora más información: primero demanda general, luego comportamiento individual y finalmente señales colaborativas e híbridas.', 'The comparison does not test the model only against a weak reference. Each level adds more information: first general demand, then individual behavior, and finally collaborative and hybrid signals.')}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+historical_precision = selected.get("previous_baseline_precision", selected.baseline_precision)
+historical_recall = selected.get("previous_baseline_recall", selected.baseline_recall)
+historical_ndcg = selected.get("previous_baseline_ndcg", selected.baseline_ndcg)
+hybrid_gain = selected.ndcg / historical_ndcg - 1
+st.html(
+    f"""
+    <div class="model-progression">
+      <article class="progression-step" style="--progress-color:#758092">
+        <div class="progression-number">01 · {tr('Punto de partida', 'Starting point')}</div>
+        <div class="progression-title">{tr('Baseline de popularidad', 'Popularity baseline')}</div>
+        <div class="progression-level">{tr('Demanda global · sin personalización', 'Global demand · no personalization')}</div>
+        <p>{tr('Recomienda los mismos productos populares a todos los clientes. Aporta cobertura, pero ignora preferencias individuales.', 'Recommends the same popular products to every customer. It provides coverage but ignores individual preferences.')}</p>
+        <div class="progression-metrics"><span>Precision<b>{selected.baseline_precision:.1%}</b></span><span>Recall<b>{selected.baseline_recall:.1%}</b></span><span>NDCG<b>{selected.baseline_ndcg:.3f}</b></span></div>
+      </article>
+      <div class="progression-arrow"><b>→</b><span>{tr('Agrega historial individual', 'Adds individual history')}</span></div>
+      <article class="progression-step" style="--progress-color:#168f83">
+        <div class="progression-number">02 · {tr('Personalización básica', 'Basic personalization')}</div>
+        <div class="progression-title">{tr('Baseline histórico', 'Historical baseline')}</div>
+        <div class="progression-level">{tr('Frecuencia + recencia de recompra', 'Repurchase frequency + recency')}</div>
+        <p>{tr('Ordena los productos que cada cliente ya compró. Es una referencia fuerte, aunque sólo puede repetir relaciones conocidas.', 'Ranks products each customer already purchased. It is a strong reference, although it can only repeat known relationships.')}</p>
+        <div class="progression-metrics"><span>Precision<b>{historical_precision:.1%}</b></span><span>Recall<b>{historical_recall:.1%}</b></span><span>NDCG<b>{historical_ndcg:.3f}</b></span></div>
+      </article>
+      <div class="progression-arrow"><b>→</b><span>{tr('Suma vecinos y señales híbridas', 'Adds neighbors and hybrid signals')}</span></div>
+      <article class="progression-step hybrid" style="--progress-color:#5b45f5">
+        <div class="progression-number">03 · {tr('Modelo final', 'Final model')}</div>
+        <div class="progression-title">{tr('Modelo híbrido LightGBM', 'Hybrid LightGBM model')}</div>
+        <div class="progression-level">{tr('Historial + KNN + popularidad + asociaciones', 'History + KNN + popularity + associations')}</div>
+        <p>{tr('Combina la recompra con productos elegidos por vecinos similares y relaciones de canasta. Así descubre afinidades más allá del historial directo.', 'Combines repurchase with products selected by similar neighbors and basket relationships, discovering affinity beyond direct history.')}</p>
+        <div class="progression-metrics"><span>Precision<b>{selected.precision:.1%}</b></span><span>Recall<b>{selected.recall:.1%}</b></span><span>NDCG<b>{selected.ndcg:.3f}</b></span></div>
+        <div class="progression-gain">+{hybrid_gain:.1%} NDCG {tr('vs. histórico', 'vs. historical')}</div>
+      </article>
     </div>
     """
 )
@@ -144,7 +200,7 @@ st.html(
     """
 )
 
-st.markdown(f"## {tr('Modelo vs. baseline', 'Model vs. baseline')} · Top {selected_k}")
+st.markdown(f"## {tr('Modelo híbrido vs. los dos baselines', 'Hybrid model vs. both baselines')} · Top {selected_k}")
 metric_col = tr("Métrica", "Metric")
 model_col = tr("Modelo personalizado", "Personalized model")
 popularity_col = tr("Baseline popularidad", "Popularity baseline")
@@ -209,34 +265,55 @@ st.markdown(
 )
 comparison = m.copy()
 if has_previous_baseline:
-    comparison["Reference Precision"] = comparison[["baseline_precision", "previous_baseline_precision"]].max(axis=1)
-    comparison["Reference Recall"] = comparison[["baseline_recall", "previous_baseline_recall"]].max(axis=1)
-    comparison["Reference NDCG"] = comparison[["baseline_ndcg", "previous_baseline_ndcg"]].max(axis=1)
+    comparison["Lift Precision"] = comparison.precision / comparison.previous_baseline_precision
+    comparison["Lift Recall"] = comparison.recall / comparison.previous_baseline_recall
+    comparison["Lift NDCG"] = comparison.ndcg / comparison.previous_baseline_ndcg
 else:
-    comparison["Reference Precision"] = comparison.baseline_precision
-    comparison["Reference Recall"] = comparison.baseline_recall
-    comparison["Reference NDCG"] = comparison.baseline_ndcg
-comparison["Lift Precision"] = comparison.precision / comparison["Reference Precision"]
-comparison["Lift Recall"] = comparison.recall / comparison["Reference Recall"]
-comparison["Lift NDCG"] = comparison.ndcg / comparison["Reference NDCG"]
-comparison_columns = ["k", "precision", "recall", "ndcg"]
+    comparison["Lift Precision"] = comparison.precision / comparison.baseline_precision
+    comparison["Lift Recall"] = comparison.recall / comparison.baseline_recall
+    comparison["Lift NDCG"] = comparison.ndcg / comparison.baseline_ndcg
+comparison_columns = ["k", "precision", "recall", "ndcg", "baseline_precision", "baseline_recall", "baseline_ndcg"]
 if has_previous_baseline:
     comparison_columns += ["previous_baseline_precision", "previous_baseline_recall", "previous_baseline_ndcg"]
 comparison_columns += ["Lift Precision", "Lift Recall", "Lift NDCG"]
+model_precision = tr("Precision modelo", "Model Precision")
+model_recall = tr("Recall modelo", "Model Recall")
+model_ndcg = tr("NDCG modelo", "Model NDCG")
+popularity_precision = tr("Precision popularidad", "Popularity Precision")
+popularity_recall = tr("Recall popularidad", "Popularity Recall")
+popularity_ndcg = tr("NDCG popularidad", "Popularity NDCG")
 repurchase_precision = tr("Precision recompra", "Repurchase Precision")
 repurchase_recall = tr("Recall recompra", "Repurchase Recall")
 repurchase_ndcg = tr("NDCG recompra", "Repurchase NDCG")
-comparison = comparison[comparison_columns].rename(columns={"k": "Top K", "precision": "Precision", "recall": "Recall", "ndcg": "NDCG", "previous_baseline_precision": repurchase_precision, "previous_baseline_recall": repurchase_recall, "previous_baseline_ndcg": repurchase_ndcg})
-comparison["Precision"] = comparison["Precision"].map(lambda value: f"{value:.1%}")
-comparison["Recall"] = comparison["Recall"].map(lambda value: f"{value:.1%}")
-comparison["NDCG"] = comparison["NDCG"].map(lambda value: f"{value:.3f}")
+comparison = comparison[comparison_columns].rename(columns={
+    "k": "Top K",
+    "precision": model_precision,
+    "recall": model_recall,
+    "ndcg": model_ndcg,
+    "baseline_precision": popularity_precision,
+    "baseline_recall": popularity_recall,
+    "baseline_ndcg": popularity_ndcg,
+    "previous_baseline_precision": repurchase_precision,
+    "previous_baseline_recall": repurchase_recall,
+    "previous_baseline_ndcg": repurchase_ndcg,
+})
+for column in [model_precision, model_recall, popularity_precision, popularity_recall]:
+    comparison[column] = comparison[column].map(lambda value: f"{value:.1%}")
+for column in [model_ndcg, popularity_ndcg]:
+    comparison[column] = comparison[column].map(lambda value: f"{value:.3f}")
 if has_previous_baseline:
     comparison[repurchase_precision] = comparison[repurchase_precision].map(lambda value: f"{value:.1%}")
     comparison[repurchase_recall] = comparison[repurchase_recall].map(lambda value: f"{value:.1%}")
     comparison[repurchase_ndcg] = comparison[repurchase_ndcg].map(lambda value: f"{value:.3f}")
 for column in ["Lift Precision", "Lift Recall", "Lift NDCG"]:
     comparison[column] = comparison[column].map(lambda value: f"{value:.2f}×")
-st.html(light_table(comparison, {"Lift Precision", "Lift Recall", "Lift NDCG"}))
+lift_labels = {
+    "Lift Precision": tr("Lift Precision vs. histórico", "Precision lift vs. historical"),
+    "Lift Recall": tr("Lift Recall vs. histórico", "Recall lift vs. historical"),
+    "Lift NDCG": tr("Lift NDCG vs. histórico", "NDCG lift vs. historical"),
+}
+comparison = comparison.rename(columns=lift_labels)
+st.html(light_table(comparison, set(lift_labels.values())))
 
 st.markdown(tr("## Poder de discriminación por deciles", "## Discrimination power by decile"))
 st.markdown(
