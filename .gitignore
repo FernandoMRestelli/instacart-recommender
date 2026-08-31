@@ -20,6 +20,9 @@ optuna_study_temporal_NDCG10_v2.db
 data/local_shap_top20.parquet
 Tesis_Marketing_Instacart_streamlit_ready_BACKUP_*.ipynb
 
+# Legacy nested export created when the notebook runs from the project root
+/Instacart Recommender/
+
 # Temporary output
 tmp/
 *.log
