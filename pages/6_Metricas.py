@@ -118,11 +118,11 @@ st.html(
     """
 )
 
-st.markdown(tr("## Cómo se construye la mejora", "## How the improvement is built"))
+st.markdown(tr("## Dos baselines independientes y un modelo híbrido", "## Two independent baselines and a hybrid model"))
 st.markdown(
     f"""
     <div class="chart-intro">
-      {tr('La comparación no enfrenta al modelo únicamente contra una referencia débil. Cada nivel incorpora más información: primero demanda general, luego comportamiento individual y finalmente señales colaborativas e híbridas.', 'The comparison does not test the model only against a weak reference. Each level adds more information: first general demand, then individual behavior, and finally collaborative and hybrid signals.')}
+      {tr('Los baselines no son acumulativos: Popularidad e Histórico son dos estrategias independientes. El modelo final sí combina señales presentes en ambas referencias y agrega información de vecinos similares y asociaciones entre productos.', 'The baselines are not cumulative: Popularity and Historical are two independent strategies. The final model combines signals represented by both references and adds information from similar neighbors and product associations.')}
     </div>
     """,
     unsafe_allow_html=True,
@@ -136,23 +136,23 @@ st.html(
     f"""
     <div class="model-progression">
       <article class="progression-step" style="--progress-color:#758092">
-        <div class="progression-number">01 · {tr('Punto de partida', 'Starting point')}</div>
+        <div class="progression-number">01A · {tr('Referencia independiente', 'Independent reference')}</div>
         <div class="progression-title">{tr('Baseline de popularidad', 'Popularity baseline')}</div>
         <div class="progression-level">{tr('Demanda global · sin personalización', 'Global demand · no personalization')}</div>
         <p>{tr('Recomienda los mismos productos populares a todos los clientes. Aporta cobertura, pero ignora preferencias individuales.', 'Recommends the same popular products to every customer. It provides coverage but ignores individual preferences.')}</p>
         <div class="progression-metrics"><span>Precision<b>{selected.baseline_precision:.1%}</b></span><span>Recall<b>{selected.baseline_recall:.1%}</b></span><span>NDCG<b>{selected.baseline_ndcg:.3f}</b></span></div>
       </article>
-      <div class="progression-arrow"><b>→</b><span>{tr('Agrega historial individual', 'Adds individual history')}</span></div>
+      <div class="progression-arrow independent"><b>≠</b><span>{tr('No se combinan entre sí', 'Not combined with each other')}</span></div>
       <article class="progression-step" style="--progress-color:#168f83">
-        <div class="progression-number">02 · {tr('Personalización básica', 'Basic personalization')}</div>
+        <div class="progression-number">01B · {tr('Referencia independiente', 'Independent reference')}</div>
         <div class="progression-title">{tr('Baseline histórico', 'Historical baseline')}</div>
         <div class="progression-level">{tr('Frecuencia + recencia de recompra', 'Repurchase frequency + recency')}</div>
         <p>{tr('Ordena los productos que cada cliente ya compró. Es una referencia fuerte, aunque sólo puede repetir relaciones conocidas.', 'Ranks products each customer already purchased. It is a strong reference, although it can only repeat known relationships.')}</p>
         <div class="progression-metrics"><span>Precision<b>{historical_precision:.1%}</b></span><span>Recall<b>{historical_recall:.1%}</b></span><span>NDCG<b>{historical_ndcg:.3f}</b></span></div>
       </article>
-      <div class="progression-arrow"><b>→</b><span>{tr('Suma vecinos y señales híbridas', 'Adds neighbors and hybrid signals')}</span></div>
+      <div class="progression-arrow"><b>→</b><span>{tr('Integra ambas familias de señales + vecinos', 'Integrates both signal families + neighbors')}</span></div>
       <article class="progression-step hybrid" style="--progress-color:#5b45f5">
-        <div class="progression-number">03 · {tr('Modelo final', 'Final model')}</div>
+        <div class="progression-number">02 · {tr('Modelo final', 'Final model')}</div>
         <div class="progression-title">{tr('Modelo híbrido LightGBM', 'Hybrid LightGBM model')}</div>
         <div class="progression-level">{tr('Historial + KNN + popularidad + asociaciones', 'History + KNN + popularity + associations')}</div>
         <p>{tr('Combina la recompra con productos elegidos por vecinos similares y relaciones de canasta. Así descubre afinidades más allá del historial directo.', 'Combines repurchase with products selected by similar neighbors and basket relationships, discovering affinity beyond direct history.')}</p>

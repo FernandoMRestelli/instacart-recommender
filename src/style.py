@@ -216,6 +216,7 @@ def apply_style():
         .progression-arrow {{ display:flex; flex-direction:column; align-items:center; justify-content:center; width:4.5rem; color:#758092; text-align:center; }}
         .progression-arrow b {{ color:#5b45f5; font-size:1.35rem; line-height:1; }}
         .progression-arrow span {{ margin-top:.32rem; font-size:.55rem; font-weight:750; line-height:1.25; }}
+        .progression-arrow.independent b {{ color:#758092; }}
         .progression-step.hybrid {{ border-color:#cfc8ff; background:linear-gradient(145deg,#f0efff,#fff); }}
         .progression-gain {{ display:inline-block; margin-top:.65rem; padding:.3rem .48rem; border-radius:999px; background:#e5f7ee; color:#087d55; font-size:.58rem; font-weight:850; }}
         .metric-comparison-card p {{ margin:.65rem 0 0; color:#687386; font-size:.68rem; line-height:1.45; }}
@@ -342,7 +343,7 @@ def apply_style():
         .stDownloadButton > button p, .stDownloadButton > button span {{ color:#fff !important; opacity:1 !important; }}
         .stDownloadButton > button:hover {{ background:#263750; border-color:#263750; color:#fff !important; box-shadow:0 2px 6px rgba(20,33,56,.18); }}
         [data-testid="stAlert"] {{ border-radius:8px; }}
-        @media (max-width:1050px) {{ .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.decile-summary-grid,.baseline-explanation-wide {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .model-progression {{ grid-template-columns:1fr; }} .progression-arrow {{ width:auto; min-height:2.4rem; }} .progression-arrow b {{ transform:rotate(90deg); }} }}
+        @media (max-width:1050px) {{ .technique-grid,.feature-component-grid,.metric-comparison-grid,.metric-definition-grid,.decile-summary-grid,.baseline-explanation-wide {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .model-progression {{ grid-template-columns:1fr; }} .progression-arrow {{ width:auto; min-height:2.4rem; }} .progression-arrow b {{ transform:rotate(90deg); }} .progression-arrow.independent b {{ transform:none; }} }}
         @media (max-width:800px) {{
           .block-container {{ padding-left:1rem; padding-right:1rem; }}
           .mobile-top-nav {{ position:sticky; top:3.55rem; z-index:998; display:flex; gap:.45rem; margin:3.55rem -1rem .85rem; padding:.65rem 1rem; overflow-x:auto; background:rgba(243,245,249,.97); border-top:1px solid #e1e5ed; border-bottom:1px solid #d8deea; box-shadow:0 5px 16px rgba(20,33,56,.08); scrollbar-width:none; -webkit-overflow-scrolling:touch; }}
